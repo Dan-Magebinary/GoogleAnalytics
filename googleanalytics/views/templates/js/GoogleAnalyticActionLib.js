@@ -1,30 +1,7 @@
-/*
- * 2007-2014 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Academic Free License (AFL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/afl-3.0.php
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- *  @author PrestaShop SA <contact@prestashop.com>
- *  @copyright  2007-2014 PrestaShop SA
- *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
- *  International Registered Trademark & Property of PrestaShop SA
- */
-
 var GoogleAnalyticEnhancedECommerce = {
 
+
+    //sssss
     setCurrency: function(Currency) {
 
         ga('set', '&cu', Currency);
@@ -113,14 +90,14 @@ var GoogleAnalyticEnhancedECommerce = {
 
     },
 
-	/*
+	/**
 	id, type, affiliation, revenue, tax, shipping and coupon.
 	**/
 
 
     refundByOrderId: function(Order) {
     
-    /*
+    /**
 	Refund an entire transaction.
 	**/
 
@@ -132,7 +109,7 @@ var GoogleAnalyticEnhancedECommerce = {
 
     refundByProduct: function(Product,Order) {
     
-    /*
+    /**
 	 Refund a single product.	
 	**/
         this.add(Product);
@@ -172,33 +149,12 @@ var GoogleAnalyticEnhancedECommerce = {
         ga('send', 'pageview');
 
     },
-	
-	
-	addTransaction: function(transaction) {
-
-       ga('ecommerce:addTransaction', {
-		  'id': transaction.orderid,                     
-		  'affiliation': transaction.storename, 
-		  'revenue': transaction.grandtotal,      
-		  'shipping': transaction.shipping,      
-		  'tax': transaction.tax                    
-		});
-
-
-		ga('send', 'transaction', {
-			'hitCallback': function() {
-				$.get( transaction.url,  { orderid:  transaction.orderid  }  );
-			}
-		});
-
-
-    },
 
     addCheckout: function(Product) {
 
         this.add(Product);
 
-        /**
+        /***
         ga('ec:setAction','checkout',{
             'step': 1
             //'option':'Visa'
