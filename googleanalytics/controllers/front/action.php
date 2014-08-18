@@ -1,5 +1,5 @@
 <?php
-/**
+/*
 * 2007-2014 PrestaShop
 *
 * NOTICE OF LICENSE
@@ -24,13 +24,12 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-/**
+/*
  * @since 1.5.0
  */
 class GoogleanalyticsActionModuleFrontController extends ModuleFrontController
 {
-	
-	/**
+	/*
 	 * @see FrontController::initContent()
 	 */
 	public function initContent()

@@ -1,5 +1,5 @@
 <?php
-/**
+/*
 * 2007-2014 PrestaShop
 *
 * NOTICE OF LICENSE
@@ -29,7 +29,7 @@ if (!defined('_PS_VERSION_'))
 
 class Googleanalytics extends Module
 {
-	/**
+	/*
 	* initiate Google Analytics module
 	*/
 	public function __construct()
@@ -51,7 +51,7 @@ class Googleanalytics extends Module
 
 	}
 
-	/**
+	/*
 	* install module *
 	* @return bool
 	*/
@@ -97,7 +97,7 @@ class Googleanalytics extends Module
 		return true;
 	}
 
-	/**
+	/*
 	* uninstall module
 	* @return bool
 	*/
@@ -114,7 +114,7 @@ class Googleanalytics extends Module
 
 
 
-	/**
+	/*
 	* back office return configuration form
 	* @return mixed
 	*/
@@ -204,7 +204,7 @@ class Googleanalytics extends Module
 
 	}
 
-	/**
+	/*
 	* back office module configuration page content
 	*/
 	public function getContent()
@@ -227,7 +227,7 @@ class Googleanalytics extends Module
 	}
 
 
-	/**
+	/*
 	* hook page header to add CSS and JS files
 	*/
 	public function hookDisplayHeader()
@@ -245,7 +245,7 @@ class Googleanalytics extends Module
 	}
 
 	
-	/**
+	/*
 	* return a detailed transaction for google analytics
 	*/
 	public function wrapOrder($orderid)
@@ -268,7 +268,7 @@ class Googleanalytics extends Module
 	}
 
 
-	/**
+	/*
 	* hook top to track transactions
 	*/
 	public function hookDisplayTop()
@@ -307,12 +307,12 @@ class Googleanalytics extends Module
 		}
 	}
 
-	/**
+	/*
 	* hook footer to load JS script for standards actions such as product clicks
 	*/
 	public function hookDisplayFooter()
 	{
-	/***Measuring a product view - Category page
+	/**Measuring a product view - Category page
 	- Includes a JavaScript code on the product list page (category and sub-category) to send the product's details:
 	o Product(s): id, name, type, category, brand, variant, list and position in the list.
 	4
@@ -352,7 +352,7 @@ class Googleanalytics extends Module
 		return $this->runJS($ga_scripts);
 	}
 
-	/**
+	/*
 	* hook home to display generate the product list associated to home featured, news products and best sellers Modules
 	*/
 	public function hookDisplayHome()
@@ -414,7 +414,7 @@ class Googleanalytics extends Module
 	public function wrapProduct($product, $extras = null)
 	{
 		$product_qty = 1;
-		/** Product Qty ***/
+		/* Product Qty ***/
 		if ($extras['qty'])
 			$product_qty = $extras['qty'];
 
@@ -429,7 +429,7 @@ class Googleanalytics extends Module
 
 		elseif (!empty($product['id_product']))
 		{
-			/** Product Link ***/
+			/* Product Link ***/
 			$product_link = $product['link'] ? :'';
 			$product = new Product($product['id_product'], true, $this->context->language->id, $this->context->shop->id);
 			$product->link = $product_link;
@@ -489,12 +489,12 @@ class Googleanalytics extends Module
 	}
 
 
-	/**
+	/*
 	* hook product page footer to load JS for product details view
 	*/
 	public function hookDisplayFooterProduct()
 	{
-		/***measuring a product details view start*****/
+		/**measuring a product details view start*****/
 		$controller_name = Tools::getValue('controller');
 
 		if ($controller_name == 'product')
@@ -508,7 +508,7 @@ class Googleanalytics extends Module
 		return null;
 	}
 
-	/**
+	/*
 	* hook shopping cart footer to send the checkout details
 	*/
 	public function hookDisplayShoppingCartFooter()
@@ -540,7 +540,7 @@ class Googleanalytics extends Module
 	}
 	
 
-	/**
+	/*
 	* hook admin order to send transactions and refunds details
 	*/
 	public function hookDisplayAdminOrder()
@@ -554,7 +554,7 @@ class Googleanalytics extends Module
 		
 	}
 
-	/**
+	/*
 	 *  admin office header to add google analytics js
 	 */
 	public function hookDisplayBackOfficeHeader($params)
@@ -587,7 +587,7 @@ class Googleanalytics extends Module
 	}
 
 	
-	/**
+	/*
 	 * hook admin office header to add google analytics js
 	 */
 	public function hookActionProductCancel($params) 

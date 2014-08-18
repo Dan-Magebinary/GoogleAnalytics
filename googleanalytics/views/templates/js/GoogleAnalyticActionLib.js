@@ -1,4 +1,4 @@
-/**
+/*
  * 2007-2014 PrestaShop
  *
  * NOTICE OF LICENSE
@@ -113,14 +113,14 @@ var GoogleAnalyticEnhancedECommerce = {
 
     },
 
-	/**
+	/*
 	id, type, affiliation, revenue, tax, shipping and coupon.
 	**/
 
 
     refundByOrderId: function(Order) {
     
-    /**
+    /*
 	Refund an entire transaction.
 	**/
 
@@ -132,7 +132,7 @@ var GoogleAnalyticEnhancedECommerce = {
 
     refundByProduct: function(Product,Order) {
     
-    /**
+    /*
 	 Refund a single product.	
 	**/
         this.add(Product);
@@ -198,7 +198,7 @@ var GoogleAnalyticEnhancedECommerce = {
 
         this.add(Product);
 
-        /***
+        /**
         ga('ec:setAction','checkout',{
             'step': 1
             //'option':'Visa'

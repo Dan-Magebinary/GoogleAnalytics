@@ -1,5 +1,5 @@
 <?php
-/**
+/*
 * 2007-2014 PrestaShop
 *
 * NOTICE OF LICENSE
@@ -24,13 +24,12 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-/**
+/*
  * @since 1.5.0
  */
 class GoogleanalyticsAjaxModuleFrontController extends ModuleFrontController
 {
-	
-	/**
+	/*
 	 * @see FrontController::initContent()
 	 */
 	public function initContent()
@@ -38,6 +37,5 @@ class GoogleanalyticsAjaxModuleFrontController extends ModuleFrontController
 		parent::initContent();
 		Db::getInstance()->execute('update `'._DB_PREFIX_.'googleanalytics` set sent=1,date_added=now() where id_order='.(int)Tools::getValue('orderid'));
 		die;
-		
 	}
 }
