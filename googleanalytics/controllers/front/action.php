@@ -1,5 +1,5 @@
 <?php
-/*
+/**
 * 2007-2014 PrestaShop
 *
 * NOTICE OF LICENSE
@@ -37,7 +37,6 @@ class GoogleanalyticsActionModuleFrontController extends ModuleFrontController
 	{
 		parent::initContent();
 		echo $this->context->cookie->__get('ga_add_cart');
-		//$this->context->cookie->__unset('ga_add_cart');
 		die;
 	}
 }
