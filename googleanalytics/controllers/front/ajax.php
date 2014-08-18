@@ -24,13 +24,20 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
-header('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT');
-
-header('Cache-Control: no-store, no-cache, must-revalidate');
-header('Cache-Control: post-check=0, pre-check=0', false);
-header('Pragma: no-cache');
-
-header('Location: ../');
-exit;
-
+/**
+ * @since 1.5.0
+ */
+class GoogleanalyticsAjaxModuleFrontController extends ModuleFrontController
+{
+	
+	/**
+	 * @see FrontController::initContent()
+	 */
+	public function initContent()
+	{
+		parent::initContent();
+		Db::getInstance()->execute('update `'._DB_PREFIX_.'googleanalytics` set sent=1,date_added=now() where id_order='.(int)Tools::getValue('orderid'));
+		die;
+		
+	}
+}

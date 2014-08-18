@@ -1,5 +1,5 @@
 <?php
-/*
+/**
 * 2007-2014 PrestaShop
 *
 * NOTICE OF LICENSE
@@ -52,7 +52,7 @@ class Googleanalytics extends Module
 	}
 
 	/**
-	* install module
+	* install module *
 	* @return bool
 	*/
 	public function install()
@@ -71,7 +71,11 @@ class Googleanalytics extends Module
 			!$this->registerHook('shoppingCart') ||
 			!$this->registerHook('top') ||
 			!$this->registerHook('backOfficeHeader') ||
-			!$this->registerHook('displayBackOfficeHeader'))
+			!$this->registerHook('displayBackOfficeHeader') ||
+			!$this->registerHook('actionProductCancel') ||
+			!$this->registerHook('actionCartSave') ||
+			!$this->registerHook('displayShoppingCart'))
+			
 		return false;
 
 		//drop transaction table
@@ -102,12 +106,8 @@ class Googleanalytics extends Module
 		if (!parent::uninstall())
 		return false;
 
-		//delete override class
-		unlink(_PS_OVERRIDE_DIR_.'class/Link.php');
-
 		//drop transaction table
 		Db::getInstance()->Execute('DROP TABLE IF EXISTS `'._DB_PREFIX_.'googleanalytics`');
-
 		return true;
 	}
 
@@ -232,12 +232,8 @@ class Googleanalytics extends Module
 	*/
 	public function hookDisplayHeader()
 	{
-		//verified
-		//echo "<br><font color=red size=30px>google analytics hook display header</font><br>";
-
 		if (Configuration::get('googleanalytics_enable') != '' && Configuration::get('googleanalytics_webtrackingid') != '')
 		{
-
 			$this->context->smarty->assign(
 				array(
 					'googleanalytics_webtrackingid' => Configuration::get('googleanalytics_webtrackingid'),
@@ -246,9 +242,30 @@ class Googleanalytics extends Module
 
 			return $this->display(__FILE__, 'hookDisplayHeader.tpl');
 		}
-
 	}
 
+	
+	/**
+	* return a detailed transaction for google analytics
+	*/
+	public function wrapOrder($orderid)
+	{
+		$order = new Order((int)$orderid);
+		
+		if (isset($order))
+		{
+			$transaction = array(
+				'orderid' => $orderid,
+				'storename' => $this->context->shop->name,
+				'grandtotal' => $order->total_paid,
+				'shipping' => $order->total_shipping,
+				'tax' => $order->total_paid_tax_incl,
+				'url' => $this->context->link->getModuleLink('googleanalytics', 'ajax'),
+			);
+			return $transaction;
+		}else
+			return null;
+	}
 
 
 	/**
@@ -257,24 +274,37 @@ class Googleanalytics extends Module
 	public function hookDisplayTop()
 	{
 		$this->context->controller->addJs($this->_path.'views/templates/js/'.'GoogleAnalyticActionLib.js');
-
 		$controller_name = Tools::getValue('controller');
 
+		//add google analytics order
 		if ($controller_name == 'orderconfirmation')
 		{
 			$orderid = $this->context->controller->id_order;
 			$order = new Order($orderid);
-			$this->context->smarty->assign(
-				array(
-				'orderid' => $orderid,
-				'storename' => $this->context->shop->name,
-				'grandtotal' => $order->total_paid,
-				'shipping' => $order->total_shipping,
-				'tax' => $order->total_paid_tax_incl,
-				)
-			);
+
+			$ga_order_record = Db::getInstance()->getRow('select sent from  `'._DB_PREFIX_.'googleanalytics` where id_order = '.(int)$orderid);
+
+			if ($ga_order_record == null)
+			{
+				Db::getInstance()->execute('insert into  `'._DB_PREFIX_.'googleanalytics` (id_order, sent, date_added) values ('.$orderid.',false,'.time().') ');
+				$ga_order_record = Db::getInstance()->getRow('select sent from  `'._DB_PREFIX_.'googleanalytics` where id_order = '.(int)$orderid);
+			}
+
+			if ($ga_order_record['sent'] != true)
+			{
+				$transaction = array(
+						'orderid' => $orderid,
+						'storename' => $this->context->shop->name,
+						'grandtotal' => $order->total_paid,
+						'shipping' => $order->total_shipping,
+						'tax' => $order->total_paid_tax_incl,
+						'url' => $this->context->link->getModuleLink('googleanalytics', 'ajax'),
+				);
+				$transaction = json_encode($transaction);
+				$ga_scripts = 'MBG.addTransaction('.$transaction.');';
+				return $this->runJS($ga_scripts);
+			}
 		}
-		return $this->display(__FILE__, 'hookDisplayTop.tpl');
 	}
 
 	/**
@@ -282,60 +312,79 @@ class Googleanalytics extends Module
 	*/
 	public function hookDisplayFooter()
 	{
+	/***Measuring a product view - Category page
+	- Includes a JavaScript code on the product list page (category and sub-category) to send the product's details:
+	o Product(s): id, name, type, category, brand, variant, list and position in the list.
+	4
+	- The “others” listing (home featured products, best sellers and news products) will display the details by re-implementing the way to get the products list from the Module into the Google Analytics Module.
+	**/
 		$controller_name = Tools::getValue('controller');
+		$products = $this->context->smarty->getTemplateVars('products');
+		$products = $this->wrapProducts($products, null);
 		// return category page product list
 		// get variables assigned by smarty
-		if ($controller_name == 'category')
+		$ga_scripts = '';
+
+		if ($controller_name == 'category' || $controller_name == 'search')
+			$ga_scripts .= $this->addProductImpressionAndClicks($products);
+
+	
+		// hook add remove from cart start
+		$cart_products = $this->wrapProducts($this->context->cart->getProducts(), null);
+		
+		$this->context->smarty->assign(
+			array(
+				'remove_cart_products' => $cart_products,
+			)
+		);
+		
+		$cart_actions = $this->context->cookie->__get('ga_cart');
+		if (isset($cart_actions))
 		{
-			$products = $this->context->smarty->getTemplateVars('products');
-			$this->context->smarty->assign(
-				array(
-					'ga_product_list' => $products,
-				)
-			);
+			$ga_scripts .= $cart_actions;
+			$this->context->cookie->__unset('ga_cart');
 		}
+		// hook add remove from cart ends
 
-		return $this->display(__FILE__, 'hookDisplayFooter.tpl');
+		if ($controller_name == 'order')
+			$ga_scripts .= $this->addProductFromCheckout($products);
+
+		return $this->runJS($ga_scripts);
 	}
-
 
 	/**
 	* hook home to display generate the product list associated to home featured, news products and best sellers Modules
 	*/
 	public function hookDisplayHome()
 	{
-		//verified
+		$ga_scripts = '';
 		$controller_name = Tools::getValue('controller');
+	
+		//add home featured products	
+		if (!isset(HomeFeatured::$cache_products))
+		{
+			$category = new Category($this->context->shop->getCategory(), $this->context->language->id);
+			$nb = (int)Configuration::get('HOME_FEATURED_NBR');
+			$home_featured_products = $this->wrapProducts($category->getProducts((int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), 'position'), null);
 
-		// return category page product list
-		// get variables assigned by smarty
+			$ga_scripts .= $this->addProductImpressionAndClicks($home_featured_products);
+		}
 
-		$products = $this->context->smarty->getTemplateVars('ga_product_list');
-		$this->context->smarty->assign(array(
-			'ga_product_list' => $products,
-			)
-		);
-
-		//add home featured products
-		$this->context->smarty->assign(array(
-			'ga_homefeatured_product_list' => HomeFeatured::_cacheProducts(),
-			)
-		);
-
+		//add new products list
 		if (Configuration::get('NEW_PRODUCTS_NBR'))
 		{
-			if (Configuration::get('PS_NB_DAYS_NEW_PRODUCT') && Configuration::get('PS_BLOCK_NEWPRODUCTS_DISPLAY'))
-			{
+			if (Configuration::get('PS_NB_DAYS_NEW_PRODUCT') || Configuration::get('PS_BLOCK_NEWPRODUCTS_DISPLAY'))
+			{  
 				$newProducts = Product::getNewProducts((int)$this->context->language->id, 0, (int)Configuration::get('NEW_PRODUCTS_NBR'));
-				$this->context->smarty->assign(array(
-						'ga_homenew_product_list' => $newProducts,
-					)
-				);
+				
+				$ga_homenew_product_list = $this->wrapProducts($newProducts, null);
+
+				$ga_scripts .= $this->addProductImpressionAndClicks($ga_homenew_product_list);
 			}
 		}
 
-
-		if (!Configuration::get('PS_CATALOG_MODE') && Configuration::get('PS_BLOCK_BESTSELLERS_DISPLAY'))
+		// add best sell product list
+		if (!Configuration::get('PS_CATALOG_MODE') || Configuration::get('PS_BLOCK_BESTSELLERS_DISPLAY'))
 		{
 			$bestsell_products = ProductSale::getBestSalesLight((int)$this->context->language->id, 0, 8);
 			$currency = new Currency($this->context->cart->id_currency);
@@ -343,16 +392,101 @@ class Googleanalytics extends Module
 			foreach ($bestsell_products as &$row)
 				$row['price'] = Tools::displayPrice(Product::getPriceStatic((int)$row['id_product'], $usetax), $currency);
 
-			$this->context->smarty->assign(array(
-						'ga_homebestsell_product_list' => $bestsell_products,
-					)
-			);
-		}
-		return $this->display(__FILE__, 'hookDisplayHome.tpl');
+			$ga_homebestsell_product_list = $this->wrapProducts($bestsell_products, null);
 
+			$ga_scripts .= $this->addProductImpressionAndClicks($ga_homebestsell_product_list);
+		}
+		
+		return $this->runJS($ga_scripts);
+	}
+
+	
+	public function wrapProducts($products, $extras = null)
+	{
+		$result_products = array();
+		foreach ($products as $product)
+			$result_products[] = $this->wrapProduct($product, $extras);
+
+		return $result_products;
+	}
+	
+	
+	public function wrapProduct($product, $extras = null)
+	{
+		$product_qty = 1;
+		/** Product Qty ***/
+		if ($extras['qty'])
+			$product_qty = $extras['qty'];
+
+		elseif ($product['cart_quantity'])
+			$product_qty = $product['cart_quantity'];
+
+		if (isset($product->id))
+			$product = new Product($product->id, true, $this->context->language->id, $this->context->shop->id);
+
+		elseif (is_int($product))
+			$product = new Product($product, true, $this->context->language->id, $this->context->shop->id);
+
+		elseif (!empty($product['id_product']))
+		{
+			/** Product Link ***/
+			$product_link = $product['link'] ? :'';
+			$product = new Product($product['id_product'], true, $this->context->language->id, $this->context->shop->id);
+			$product->link = $product_link;
+		}
+		else
+			return null;
+
+		if (Validate::isLoadedObject($product))
+		{
+			$category = new Category($product->id_category_default);
+			$manufactory = Manufacturer::getNameById((int)$product->id_manufacturer);
+			
+			$producttype = 'typical';
+			if ($product->pack == 1)
+				$producttype = 'pack';
+			if ($product->vitural == 1)
+				$producttype = 'vitural';
+
+			$ga_product = array(
+				'id'=>$product->reference,
+				'name'=>Product::getProductName($product->id),
+				'category'=>$category->getName(),
+				'brand'=>$manufactory,
+				'variant'=>number_format($product->price, '2'),
+				'type'=>$producttype,
+				'position'=>0,
+				'quantity'=>$product_qty,
+				'list'=>Tools::getValue('controller'),
+				'url'=>$product->link
+			);
+			return $ga_product;
+		}
+		return null;
+	
 	}
 
 
+	public function addProductImpressionAndClicks($products)
+	{
+		$js = '';
+		foreach ($products as $product)
+		{
+			$js .= 'MBG.addProductImpression('.json_encode($product).');';
+			$js .= 'MBG.addProductClick('.json_encode($product).');';
+		}
+		return $js;
+	}
+
+	public function addProductFromCheckout($products)
+	{
+		$js = '';
+		//addCheckout
+		foreach ($products as $product)
+			$js .= 'MBG.addCheckout('.json_encode($product).');';
+
+		return $js;
+	}
 
 
 	/**
@@ -360,22 +494,18 @@ class Googleanalytics extends Module
 	*/
 	public function hookDisplayFooterProduct()
 	{
+		/***measuring a product details view start*****/
 		$controller_name = Tools::getValue('controller');
 
 		if ($controller_name == 'product')
-		{
-			if ($id_product = (int)Tools::getValue('id_product'))
-				$ga_product = new Product($id_product, true, $this->context->language->id, $this->context->shop->id);
-
-			if (Validate::isLoadedObject($ga_product))
-			{
-				$this->context->smarty->assign(array(
-				'ga_product' => $ga_product,
-				)
-				);
-			}
-			return $this->display(__FILE__, 'hookDisplayFooterProduct.tpl');
+		{	
+			//add product view 
+			$id_product = (int)Tools::getValue('id_product');
+			$ga_product = $this->wrapProduct($id_product);
+			return $this->runJS('MBG.addProductDetailView('.json_encode($ga_product).');');
 		}
+		
+		return null;
 	}
 
 	/**
@@ -383,22 +513,49 @@ class Googleanalytics extends Module
 	*/
 	public function hookDisplayShoppingCartFooter()
 	{
-		return $this->display(__FILE__, 'hookDisplayShoppingCartFooter.tpl');
-
+		// hook add remove from cart
+		$cart_products = $this->wrapProducts($this->context->cart->getProducts());
+		$this->context->smarty->assign(
+			array(
+				'remove_cart_products' => $cart_products,
+			)
+		);
 	}
-
+	
+	public function runJS($jscode)
+	{
+		$currency = $this->context->currency->iso_code;
+		$js = "
+			<script>
+				jQuery(document).ready(function(){
+					var MBG = GoogleAnalyticEnhancedECommerce;
+					MBG.setCurrency('$currency');
+					".
+					$jscode
+					.'
+				});
+			</script>
+		';
+		return $js;
+	}
+	
 
 	/**
 	* hook admin order to send transactions and refunds details
 	*/
 	public function hookDisplayAdminOrder()
 	{
-		return $this->display(__FILE__, 'hookDisplayAdminOrder.tpl');
+		$ga_scripts = $this->context->cookie->__get('ga_admin_refund');
+		
+		echo $this->runJS($ga_scripts);
+		
+		$this->context->cookie->__unset('ga_admin_refund');
+			
+		
 	}
 
-
 	/**
-	 * hook admin office header to add google analytics js
+	 *  admin office header to add google analytics js
 	 */
 	public function hookDisplayBackOfficeHeader($params)
 	{
@@ -411,8 +568,72 @@ class Googleanalytics extends Module
 					'googleanalytics_webtrackingid' => Configuration::get('googleanalytics_webtrackingid'),
 				)
 			);
-			return $this->display(__FILE__, 'hookDisplayBackOfficeHeader.tpl');
+			
+			$ga_scripts = '';
+			$ga_order_records = Db::getInstance()->ExecuteS('select * from  `'._DB_PREFIX_.'googleanalytics` where sent=0');
+
+			foreach ($ga_order_records as $row)
+			{
+				$transaction = $this->wrapOrder($row['id_order']);
+				if (isset($transaction))
+				{
+					$transaction = json_encode($transaction);
+					$ga_scripts .= 'MBG.addTransaction('.$transaction.');';
+				}
+			}
+			
+			return $this->display(__FILE__, 'hookDisplayBackOfficeHeader.tpl').$this->runJS($ga_scripts);
 		}
+	}
+
+	
+	/**
+	 * hook admin office header to add google analytics js
+	 */
+	public function hookActionProductCancel($params) 
+	{
+		$qty_refunded = Tools::getValue('cancelQuantity');
+		
+		$Order = array(
+			'id' => $params['order']->reference,			
+		);
+		
+		$ga_scripts = '';
+		foreach ($qty_refunded as $orderdetail_id => $qty)
+		{
+			$orderdetail = new OrderDetail($orderdetail_id);
+			
+			$Product = array(
+				'id' => $orderdetail->product_reference,
+				'quantity' => $qty,			
+			);
+			//display ga refund product
+			$ga_scripts .= 'MBG.refundByProduct('.json_encode($Product).','.json_encode($Order).');';
+		}
+		
+		$this->context->cookie->__set('ga_admin_refund', $ga_scripts);
+	}
+
+	public function hookActionCartSave($params)
+	{
+		$Cart = array(
+			'addAction' => Tools::getValue('add') ? 'add':'',
+			'removeAction' => Tools::getValue('delete') ? 'delete':'',
+			'extraAction' => Tools::getValue('op') ? 'down':'up',
+			'qty'=> Tools::getValue('qty') ? :'1'
+			);
+
+		$ga_products = $this->wrapProduct((int)Tools::getValue('id_product'), $Cart);
+		$ga_scripts  = '';
+		
+		if ($Cart['addAction'] == 'add' || $Cart['extraAction'] == 'up')
+			$ga_scripts .= 'MBG.addToCart('.json_encode($ga_products).');';
+		
+		if ($Cart['removeAction'] == 'delete' || $Cart['extraAction'] == 'down')
+			$ga_scripts .= 'MBG.removeFromCart('.json_encode($ga_products).');';
+
+		$this->context->cookie->__set('ga_cart', $this->context->cookie->__get('ga_cart').$ga_scripts);
+
 	}
 
 }

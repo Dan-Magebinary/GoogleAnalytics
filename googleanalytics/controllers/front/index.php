@@ -1,5 +1,5 @@
 <?php
-/**
+/*
 * 2007-2014 PrestaShop
 *
 * NOTICE OF LICENSE
@@ -33,4 +33,3 @@ header('Pragma: no-cache');
 
 header('Location: ../');
 exit;
-
